@@ -75,7 +75,7 @@ def employees_list(request):
     offset = (page - 1) * page_size
 
     # Active users lang may system access = Y
-    employees = Employee.objects.filter(system_access='Y')
+    employees = Employee.objects.filter()
 
     # Search by employee id
     if employee_id:

@@ -24,42 +24,6 @@ from .signals import set_current_user, clear_current_user
 
 
 
-class AuditLogMixin:
-    # Reusable methods para sa audit logs / status logs
-
-    def get_logs(self, obj):
-        # Kunin lahat ng logs ng record
-        # Latest first
-
-        table_name = (
-            getattr(obj, '_meta', type(obj)).model_name
-            if hasattr(obj, '_meta')
-            else obj.__class__.__name__
-        )
-
-        table_id = (
-            getattr(obj, 'timesheet_id', None)
-            or getattr(obj, 'last_pay_record_id', None)
-            or getattr(obj, 'id', None)
-        )
-
-        logs = GeneralLog.objects.filter(
-            table_name=table_name,
-            table_id=table_id
-        ).order_by('-performed_at')
-
-        return GeneralLogSerializer(
-            logs,
-            many=True
-        ).data
-
-    def get_audit_logs(self, obj):
-        return self.get_logs(obj)
-
-    def get_status_logs(self, obj):
-        return self.get_logs(obj)
-
-
 class GeneralLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = GeneralLog
@@ -96,38 +60,8 @@ class AllowanceTableSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
-class EmployeeModelSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Employee
-        fields = "__all__"
-
-
-class EmployeeListSerializer(
-    SQLLookupMixin,
-    serializers.ModelSerializer
-):
-    """
-    Lightweight list serializer for AccessRights page and EmployeeSearchDialog
-    Only includes essential fields for user management and employee search
-    """
-    position = serializers.SerializerMethodField()
-    dept_name = serializers.SerializerMethodField()
-    company = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Employee
-        fields = [
-            "emp_id",
-            "first_name",
-            "last_name",
-            "email_address",
-            "role_id",
-            "system_access",
-            "system_password",
-            "position",
-            "dept_name",
-            "company"
-        ]
+class EmployeeFieldsMixin:
+    """Shared position/dept/company fields for Employee serializers"""
 
     def _get_employee_record(self, obj):
         try:
@@ -153,6 +87,35 @@ class EmployeeListSerializer(
         if record and record.comp_id:
             return self.get_company_name(record.comp_id)
         return None
+
+
+class EmployeeListSerializer(
+    EmployeeFieldsMixin,
+    SQLLookupMixin,
+    serializers.ModelSerializer
+):
+    """
+    Lightweight list serializer for AccessRights page and EmployeeSearchDialog
+    Only includes essential fields for user management and employee search
+    """
+    position = serializers.SerializerMethodField()
+    dept_name = serializers.SerializerMethodField()
+    company = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Employee
+        fields = [
+            "emp_id",
+            "first_name",
+            "last_name",
+            "email_address",
+            "role_id",
+            "system_access",
+            "system_password",
+            "position",
+            "dept_name",
+            "company"
+        ]
 
 
 # ---------------------------------------------------------
@@ -244,7 +207,6 @@ class LastPayRecordListSerializer(serializers.ModelSerializer):
 
 
 class LastPayRecordSerializer(
-    AuditLogMixin,
     SQLLookupMixin,
     serializers.ModelSerializer
 ):
@@ -564,6 +526,7 @@ class TimesheetRecordSerializer(
 
 
 class EmployeeSerializer(
+    EmployeeFieldsMixin,
     SQLLookupMixin,
     serializers.ModelSerializer
 ):
@@ -575,30 +538,5 @@ class EmployeeSerializer(
     class Meta:
         model = Employee
         fields = "__all__"
-
-    def _get_employee_record(self, obj):
-        try:
-            from .models import EmployeeRecord
-            return EmployeeRecord.objects.filter(
-                emp_id=obj.emp_id
-            ).first()
-        except:
-            return None
-
-    def get_position(self, obj):
-        record = self._get_employee_record(obj)
-        return record.position if record else None
-
-    def get_dept_name(self, obj):
-        record = self._get_employee_record(obj)
-        if record and record.dept_id:
-            return self.get_department_name(record.dept_id)
-        return None
-
-    def get_company(self, obj):
-        record = self._get_employee_record(obj)
-        if record and record.comp_id:
-            return self.get_company_name(record.comp_id)
-        return None
 
     
