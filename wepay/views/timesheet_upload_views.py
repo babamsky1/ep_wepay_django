@@ -559,16 +559,16 @@ def upload_timesheet(request):
                     is_holiday = parsed_date in holiday_dates
 
                     if is_holiday:
-                        # Holiday — double ang hours, based on employee type
+                        # Holiday — regular hours, based on employee type
                         if is_compressed_employee:
                             if day_of_week == 1:        # Monday
-                                day_max = 600 * 2
+                                day_max = 600
                             elif 2 <= day_of_week <= 5: # Tuesday-Friday
-                                day_max = 570 * 2
+                                day_max = 570
                             else:                       # Saturday
-                                day_max = 480 * 2
+                                day_max = 480
                         else:
-                            day_max = 480 * 2           # Regular employee
+                            day_max = 480               # Regular employee
 
                     elif is_compressed_employee:
                         if not holidays_in_week:
@@ -629,9 +629,9 @@ def upload_timesheet(request):
                     # I-skip ang record na may error, huwag pabagsakin ang buong upload
                     continue
 
-            # --- HOLIDAY CREDIT: I-credit ang holidays na nahulog sa pagitan ng work days ---
+            # HOLIDAY CREDIT: I-credit ang holidays na nahulog sa pagitan ng work days
             # Halimbawa: Nagtrabaho ng April 1, holiday April 2-4, nagtrabaho ulit April 6
-            # → I-credit ang April 2, 3, 4
+            # I-credit ang April 2, 3, 4
             if all_dates and holiday_dates:
                 work_days = sorted(all_dates)
 
@@ -652,13 +652,8 @@ def upload_timesheet(request):
 
                     sched_time_in, sched_time_out = schedule[0], schedule[1]
 
-                    # I-compute ang basic_hours base sa schedule length
-                    sched_in_dt = datetime.strptime(str(sched_time_in), "%H:%M:%S")
-                    sched_out_dt = datetime.strptime(str(sched_time_out), "%H:%M:%S")
-                    if sched_out_dt < sched_in_dt:
-                        sched_out_dt += timedelta(days=1)
-
-                    basic_hours = float(int((sched_out_dt - sched_in_dt).total_seconds() / 60))
+                    # For holidays, use standard 480 minutes (8 hours) regardless of compressed schedule
+                    basic_hours = 480.0
 
                     with connection.cursor() as cursor:
                         cursor.execute(
@@ -685,7 +680,8 @@ def upload_timesheet(request):
                             """,
                             [
                                 emp_id, holiday_date,
-                                None, None,         # Walang actual time para sa holiday credit
+                                sched_time_in.strftime("%H:%M:%S") if sched_time_in else None,
+                                sched_time_out.strftime("%H:%M:%S") if sched_time_out else None,
                                 "N", is_compressed,
                                 1.0, 0.0,           # basic_days, absent_days
                                 0, 0,               # Walang late o undertime

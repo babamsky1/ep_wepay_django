@@ -27,44 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Helper — TODO: ilipat sa shared utils.py para hindi mag-duplicate
-# sa timesheet_upload_views.py
-# ---------------------------------------------------------------------------
-def get_employee_schedule(emp_id, tran_date):
-    """
-    Kunin ang schedule ng employee para sa specific na date.
-    Una, tingnan ang employee_schedule (specific date).
-    Kung wala, tingnan ang employee_schedule_default (weekly default).
-    Returns: (time_in, time_out, rest_day, total_work_mins) or None
-    """
-    day_of_week = tran_date.isoweekday()  # 1=Monday, 7=Sunday
-
-    with connection.cursor() as cursor:
-        # check muna kung may special schedule
-        cursor.execute(
-            """
-            SELECT time_in, time_out, rest_day, total_work_mins
-            FROM employee_schedule
-            WHERE emp_id = %s AND tran_date = %s
-            """,
-            [emp_id, tran_date],
-        )
-        result = cursor.fetchone()
-        if result:
-            return result
-        # pag walang schedule sa special, gamitin yung default
-        cursor.execute(
-            """
-            SELECT time_in, time_out, rest_day, total_work_mins
-            FROM employee_schedule_default
-            WHERE emp_id = %s AND tran_day = %s
-            """,
-            [emp_id, day_of_week],
-        )
-        return cursor.fetchone()
-
-
-# ---------------------------------------------------------------------------
 # Main view
 # ---------------------------------------------------------------------------
 @api_view(["GET"])
@@ -153,12 +115,12 @@ def generate__last_pay(request):
             avg_work_mins_per_day = Decimal("480")
 
             # Kunin ang pre-computed timesheet totals mula sa lp_timesheet
+            # Fully dependent on basic_hours computed by timesheet_upload_views.py
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
                     SELECT
                         SUM(basic_hours)  AS total_basic_hours,
-                        SUM(absent_days)  AS total_absent_days,
                         SUM(late_mins)    AS total_late_mins,
                         SUM(ut_mins)      AS total_ut_mins
                     FROM lp_timesheet
@@ -170,37 +132,25 @@ def generate__last_pay(request):
                 timesheet_totals = cursor.fetchone()
 
             total_basic_hours = Decimal(str(timesheet_totals[0] or 0))
-            absent_days       = Decimal(str(timesheet_totals[1] or 0))
-            total_late_mins   = Decimal(str(timesheet_totals[2] or 0))
-            total_ut_mins     = Decimal(str(timesheet_totals[3] or 0))
+            total_late_mins   = Decimal(str(timesheet_totals[1] or 0))
+            total_ut_mins     = Decimal(str(timesheet_totals[2] or 0))
 
             # Rates
             daily_rate    = Decimal(str(employee_record.daily_rate))
             avg_hour_rate = daily_rate / avg_hours_per_day  # Para sa overtime computation
 
-            # Days worked — iba ang logic para sa FIXED vs DAILY
-            sal_type = employee_record.sal_type.upper() if employee_record.sal_type else "DAILY"
+            # Days worked — derived from basic_hours
+            # basic_hours already accounts for schedule, holidays, late, UT, etc. from timesheet_upload_views.py
+            basic_days  = total_basic_hours / avg_work_mins_per_day
+            days_worked = max(basic_days, Decimal("0.00"))
 
-            if sal_type == "FIXED":
-                # FIXED: magsimula sa 13 days, ibabawas ang absent/late/UT
-                base_days  = Decimal("13.00")
-                late_days  = total_late_mins / avg_work_mins_per_day
-                ut_days    = total_ut_mins   / avg_work_mins_per_day
-                days_worked = max(base_days - absent_days - late_days - ut_days, Decimal("0.00"))
-            else:
-                # DAILY: i-derive ang days mula sa basic_hours
-                # basic_hours na accounts for late/UT — hindi na kailangan ibawas ulit
-                basic_days  = total_basic_hours / avg_work_mins_per_day
-                days_worked = max(basic_days - absent_days, Decimal("0.00"))
-
-            # 13th month: ibalik ang late/UT deductions — hindi binabawas dito
+            # 13th month — add back late/UT deductions (not included in 13th month computation)
             late_days_13th = total_late_mins / avg_work_mins_per_day
             ut_days_13th   = total_ut_mins   / avg_work_mins_per_day
             days_for_13th  = max(days_worked + late_days_13th + ut_days_13th, Decimal("0.00"))
 
-            # Basic pay at absent amount
-            basic_pay  = max(days_worked * daily_rate, Decimal("0.00"))
-            absent_amt = absent_days * daily_rate
+            # Basic pay
+            basic_pay = max(days_worked * daily_rate, Decimal("0.00"))
 
             # --- Leave credit computation ---
             employee_leave_allocation = EmployeeLeave.objects.filter(
@@ -235,13 +185,13 @@ def generate__last_pay(request):
             remaining_days = remaining_hrs / avg_hours_per_day
             leave_credit_amt = daily_rate * remaining_days
 
-            # --- Schedule filter para sa allowances at loans ---
+            # Schedule filter para sa allowances at loans
             if payroll_generation == "WEEKLY":
                 sched_filter = ["E"]
             else:
                 sched_filter = ["E", "1"] if last_day.day <= 15 else ["E", "3"]
 
-            # --- Allowances ---
+            # Allowances
             employee_allowance = EmployeeAllowance.objects.filter(
                 emp_id=emp_id,
                 active="Y",
@@ -262,7 +212,7 @@ def generate__last_pay(request):
                 else Decimal("0.00")
             )
 
-            # --- Loans ---
+            # Loans
             employee_loans = EmployeeLoans.objects.filter(
                 emp_id=emp_id,
                 date_start__lte=last_day,
@@ -273,7 +223,7 @@ def generate__last_pay(request):
                 total=Coalesce(Sum("balance_amount"), 0, output_field=DecimalField())
             )["total"]
 
-            # --- Overtime ---
+            # Overtime
             with connection.cursor() as cursor:
                 cursor.execute(
                     """
@@ -297,11 +247,12 @@ def generate__last_pay(request):
             total_ot_amt = Decimal("0.00")
             for ot in overtime_res:
                 hours    = Decimal(str(ot["applied_hrs"]))
-                mult     = Decimal(str(ot["ot_multiplier"]))
+                mult_val = ot["ot_multiplier"]
+                mult     = Decimal(str(mult_val)) if mult_val is not None else Decimal("0")
                 raw_amt  = (hours * avg_hour_rate) * mult
                 total_ot_amt += raw_amt.quantize(Decimal("0.00"), rounding=ROUND_HALF_EVEN)
 
-            # --- 13th month pay ---
+            # 13th month pay
             # basic_pay_for_13th_month: base sa days_for_13th (walang late/UT deduction)
             basic_pay_for_13th_month = days_for_13th * daily_rate
 
@@ -423,7 +374,7 @@ def generate__last_pay(request):
                 daily_rate=employee_record.daily_rate,
                 total_days_worked=days_worked,
                 basic_pay=basic_pay,
-                lp_total_absents=absent_amt,
+                lp_total_absents=Decimal("0.00"),   # Basic_hours na ang nag-account ng absents
                 lp_total_late_amt=Decimal("0.00"),   # Basic_hours na ang nag-account ng late
                 lp_total_ut_amt=Decimal("0.00"),      # Basic_hours na ang nag-account ng UT
                 employee_start_date=employee_record.date_hired,
@@ -476,7 +427,8 @@ def generate__last_pay(request):
             # I-save ang overtime details
             for ot in overtime_res:
                 hours       = Decimal(str(ot["applied_hrs"]))
-                mult        = Decimal(str(ot["ot_multiplier"]))
+                mult_val    = ot["ot_multiplier"]
+                mult        = Decimal(str(mult_val)) if mult_val is not None else Decimal("0")
                 raw_amt     = (hours * avg_hour_rate) * mult
                 rounded_amt = raw_amt.quantize(Decimal("0.00"), rounding=ROUND_HALF_EVEN)
                 OvertimeDetail(
