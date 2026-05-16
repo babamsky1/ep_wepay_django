@@ -25,10 +25,6 @@ from wepay.serializers import LastPayRecordSerializer, GeneralLog
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Main view
-# ---------------------------------------------------------------------------
 @api_view(["GET"])
 def generate__last_pay(request):
 
@@ -93,7 +89,7 @@ def generate__last_pay(request):
             status=409,
         )
 
-    # --- Main computation — lahat nasa loob ng atomic transaction ---
+    # Main computation — lahat nasa loob ng atomic transaction
     try:
         with transaction.atomic():
 
@@ -152,7 +148,7 @@ def generate__last_pay(request):
             # Basic pay
             basic_pay = max(days_worked * daily_rate, Decimal("0.00"))
 
-            # --- Leave credit computation ---
+            # Leave credit computation
             employee_leave_allocation = EmployeeLeave.objects.filter(
                 emp_id=emp_id,
                 year=str(last_day.year),
@@ -328,7 +324,7 @@ def generate__last_pay(request):
                 Decimal("1.00"), rounding=ROUND_HALF_EVEN
             )
 
-            # --- Last pay at net pay ---
+            # Last pay at net pay
             last_pay = max(
                 basic_pay + rem_allowance + total_ot_amt + leave_credit_amt,
                 Decimal("0.00"),
@@ -337,7 +333,7 @@ def generate__last_pay(request):
             # Loans ay para sa display lang — hindi ibinabawas sa net pay
             total_net_pay = max(amount_thirteenth + last_pay, Decimal("0.00"))
 
-            # --- I-generate ang reference number ---
+            # I-generate ang reference number
             new_last_pay_record_id = str(uuid.uuid4()).replace("-", "").upper()
             gen_header = f"REF{timezone.now().strftime('%m%y')}"
 

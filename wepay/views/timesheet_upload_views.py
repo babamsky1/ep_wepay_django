@@ -49,12 +49,7 @@ def get_employee_data(emp_id):
 
 
 def get_employee_schedule(emp_id, tran_date):
-    """
-    Kunin ang schedule ng employee para sa specific na date.
-    Una, tingnan ang employee_schedule (specific date).
-    Kung wala, tingnan ang employee_schedule_default (weekly default).
-    Returns: (time_in, time_out, rest_day) or None
-    """
+    # check employee schedule first
     day_of_week = tran_date.isoweekday()  # 1=Monday, 7=Sunday
 
     with connection.cursor() as cursor:
@@ -100,10 +95,7 @@ def get_employee_compressed_status(emp_id):
 
 
 def get_holidays_for_period(start_date, end_date):
-    """
-    Kunin lahat ng holidays mula sa holiday_calendar para sa given date range.
-    Returns: set ng date objects na representing holidays
-    """
+    # check holiday calendar always
     with connection.cursor() as cursor:
         cursor.execute(
             """
@@ -141,6 +133,7 @@ def get_merged_attendance(emp_id, biometric_id, dates):
     - May bio time_in lang + OB time_in na mas maaga: gamitin OB time_in
     - Walang bio data: gamitin lahat ng OB data
     """
+    # merge attendance, always check OB reqeust to fill gaps from attendance
     merged_attendance = {}
 
     # Kunin lahat ng approved OB requests para sa mga dates na ito
@@ -313,7 +306,7 @@ def upload_timesheet(request):
             valid_entries = 0
             biometric_dates = set()
 
-            # --- PASS 1: I-parse ang dates at i-check ang collision sa payroll ---
+            # I-parse ang dates at i-check ang collision sa payroll
             for line in lines:
                 line = line.strip()
 
@@ -371,7 +364,7 @@ def upload_timesheet(request):
                                 status=status.HTTP_400_BAD_REQUEST,
                             )
 
-            # --- PASS 2: I-insert na ang records sa lp_inout ---
+            # I-insert na ang records sa lp_inout
             for line in lines:
                 line = line.strip()
 
@@ -439,7 +432,7 @@ def upload_timesheet(request):
             is_compressed_employee = get_employee_compressed_status(emp_id)
             is_compressed = "Y" if is_compressed_employee else "N"
 
-            # --- MAIN LOOP: I-compute at i-save ang lp_timesheet records ---
+            # I-compute at i-save ang lp_timesheet records
             for parsed_date, attendance_data in merged_attendance.items():
                 try:
                     time_in = attendance_data["time_in"]
@@ -535,7 +528,7 @@ def upload_timesheet(request):
                     if rest_day == "Y":
                         continue
 
-                    # --- COMPUTE LATE AT UNDERTIME ---
+                    # COMPUTE LATE AT UNDERTIME
                     late_mins = 0
                     ut_mins = 0
 
@@ -553,7 +546,7 @@ def upload_timesheet(request):
                         # Undertime — charged in 30-minute blocks
                         ut_mins = ((raw_ut + 29) // 30) * 30 if raw_ut > 0 else 0
 
-                    # --- COMPUTE BASIC HOURS ---
+                    # COMPUTE BASIC HOURS
                     # Base = maximum hours para sa araw na iyon
                     # Ibabawas ang late at undertime
                     is_holiday = parsed_date in holiday_dates
