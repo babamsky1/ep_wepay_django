@@ -176,12 +176,6 @@ def quit_claim_update_status(request):
         status=status.HTTP_200_OK,
     )
 
-
-
-
-
-
-
 @api_view(["PUT"])
 def quit_claim_reopen(request):
     # Reopen quit claim

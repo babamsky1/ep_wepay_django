@@ -17,12 +17,12 @@ class GeneralLog(models.Model):
     performed_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = 'general_logs'
-        ordering = ['-performed_at']
+        db_table = "general_logs"
+        ordering = ["-performed_at"]
         indexes = [
-            models.Index(fields=['table_name', 'table_id']),
-            models.Index(fields=['action']),
-            models.Index(fields=['performed_at']),
+            models.Index(fields=["table_name", "table_id"]),
+            models.Index(fields=["action"]),
+            models.Index(fields=["performed_at"]),
         ]
 
     def __str__(self):
@@ -75,9 +75,7 @@ class LastPayRecord(models.Model):
     lp_total_late_amt = models.DecimalField(
         max_digits=15, decimal_places=2, default=0.00
     )
-    lp_total_ut_amt = models.DecimalField(
-        max_digits=15, decimal_places=2, default=0.00
-    )
+    lp_total_ut_amt = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     lp_total_payables = models.DecimalField(
         max_digits=15, decimal_places=2, default=0.00
     )
@@ -210,8 +208,12 @@ class Month13SalaryDetail(models.Model):
     )
     total_amt = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
     days_absent = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)
-    period_start_date = models.DateField(null=True, blank=True, db_comment="Payroll period start date")
-    period_end_date = models.DateField(null=True, blank=True, db_comment="Payroll period end date")
+    period_start_date = models.DateField(
+        null=True, blank=True, db_comment="Payroll period start date"
+    )
+    period_end_date = models.DateField(
+        null=True, blank=True, db_comment="Payroll period end date"
+    )
 
     class Meta:
         db_table = "lp_month13_salary_details"
@@ -219,9 +221,7 @@ class Month13SalaryDetail(models.Model):
         verbose_name_plural = "13th Month Salary Details"
 
     def __str__(self):
-        return (
-            f"13th Month {self.period_start_date} to {self.period_end_date} - {self.total_amt}"
-        )
+        return f"13th Month {self.period_start_date} to {self.period_end_date} - {self.total_amt}"
 
 
 class OvertimeDetail(models.Model):
@@ -296,14 +296,18 @@ class Employee(models.Model):
     citizenship = models.CharField(
         max_length=50, blank=True, null=True, db_comment="citizenship"
     )
-    birth_date = models.DateField(db_comment="Date of Birth",  blank=True, null=True)
+    birth_date = models.DateField(db_comment="Date of Birth", blank=True, null=True)
     birth_place = models.CharField(
         max_length=255, blank=True, null=True, db_comment="Place of Birth"
     )
-    sex = models.CharField(max_length=10, db_comment="Male, Female",  blank=True, null=True)
+    sex = models.CharField(
+        max_length=10, db_comment="Male, Female", blank=True, null=True
+    )
     marital_stat = models.CharField(
         max_length=10,
-        db_comment=" S    = Single\r\n M  = Married\r\n W  = Widowed\r\n D  = Divorced\r\n X = Separated",  blank=True, null=True
+        db_comment=" S    = Single\r\n M  = Married\r\n W  = Widowed\r\n D  = Divorced\r\n X = Separated",
+        blank=True,
+        null=True,
     )
     height = models.CharField(max_length=20, blank=True, null=True, db_comment="Height")
     weight = models.CharField(max_length=20, blank=True, null=True, db_comment="Weight")
@@ -507,7 +511,9 @@ class PayrollData(models.Model):
         models.DO_NOTHING,
         db_comment=" Payroll header key\r\n format : YYYYDD-XXXX",
     )
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     last_name = models.CharField(max_length=50, db_comment="Last Name")
     first_name = models.CharField(max_length=50, db_comment="First Name")
     middle_name = models.CharField(
@@ -607,7 +613,7 @@ class PayrollData(models.Model):
     auto_gov_sss = models.CharField(max_length=1, db_comment="Y=Yes, N=No")
     auto_gov_pag = models.CharField(max_length=1, db_comment="Y=Yes, N=No")
     auto_gov_ph = models.CharField(max_length=1, db_comment="Y=Yes, N=No")
-    auto_gov_tax = models.CharField(max_length=1, db_comment="Y=Yes, N=No") 
+    auto_gov_tax = models.CharField(max_length=1, db_comment="Y=Yes, N=No")
     region_id = models.CharField(
         max_length=30, blank=True, null=True, db_comment="Region ID"
     )
@@ -622,7 +628,9 @@ class PayrollData(models.Model):
 
 class TimeSheet(models.Model):
     pk = models.CompositePrimaryKey("emp_id", "tran_date")
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     tran_date = models.DateField(db_comment="Transaction Date")
     default_time_in = models.TimeField(blank=True, null=True)
     default_time_out = models.TimeField(blank=True, null=True)
@@ -667,25 +675,36 @@ class TimeSheet(models.Model):
 
 class TimesheetRecord(models.Model):
     """Model to store processed timesheet records for display in datatable."""
-    timesheet_id = models.CharField(max_length=50, primary_key=True, db_comment="Timesheet ID")
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+
+    timesheet_id = models.CharField(
+        max_length=50, primary_key=True, db_comment="Timesheet ID"
+    )
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     emp_name = models.CharField(max_length=255, db_comment="Employee Name")
     uploaded_at = models.DateTimeField(auto_now_add=True, db_comment="Upload Timestamp")
-    uploaded_by = models.CharField(max_length=255, blank=True, null=True, db_comment="Uploaded By")
+    uploaded_by = models.CharField(
+        max_length=255, blank=True, null=True, db_comment="Uploaded By"
+    )
     updated_at = models.DateTimeField(auto_now=True, db_comment="Updated At")
-    updated_by = models.CharField(max_length=255, blank=True, null=True, db_comment="Updated By")
-    
+    updated_by = models.CharField(
+        max_length=255, blank=True, null=True, db_comment="Updated By"
+    )
+
     class Meta:
         managed = False
         db_table = "timesheet_uploads"
-    
+
     def __str__(self):
         return f"{self.timesheet_id} - {self.emp_name}"
 
 
 class EmployeeAllowance(models.Model):
     pk = models.CompositePrimaryKey("emp_id", "allow_id")
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     allow = models.ForeignKey(
         "AllowanceType", models.DO_NOTHING, db_comment="Allowance ID"
     )
@@ -725,7 +744,9 @@ class AllowanceType(models.Model):
 
 
 class TimesheetOvertime(models.Model):
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     tran_date = models.DateField()
     ot_code = models.CharField(max_length=20)
     ot_hours = models.FloatField()
@@ -777,7 +798,9 @@ class LoanType(models.Model):
 
 class EmployeeLoans(models.Model):
     pk = models.CompositePrimaryKey("emp_id", "loan_id", "loan_date")
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     loan = models.ForeignKey("LoanType", models.DO_NOTHING, db_comment="Loan ID")
     loan_date = models.DateField()
     date_start = models.DateField(db_comment="Date started")
@@ -819,6 +842,7 @@ class OtherDedType(models.Model):
 
 class InOutRecord(models.Model):
     """Model for lp_inout table storing biometric attendance data"""
+
     biometric_id = models.IntegerField(db_comment="Biometric ID")
     tran_date = models.DateField(db_comment="Transaction Date")
     tran_time = models.TimeField(db_comment="Transaction Time")
@@ -833,7 +857,13 @@ class InOutRecord(models.Model):
 
 
 class EmployeeOtherDed(models.Model):
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, primary_key=True, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee",
+        models.DO_NOTHING,
+        primary_key=True,
+        db_column="emp_id",
+        db_comment="Employee ID",
+    )
     ded = models.ForeignKey(
         "OtherDedType", models.DO_NOTHING, db_comment="Deduction ID"
     )
@@ -888,7 +918,9 @@ class ThirteenThMonthHead(models.Model):
 class ThirteenThMonthData(models.Model):
     pk = models.CompositePrimaryKey("head_id", "emp_id")
     head = models.ForeignKey("ThirteenThMonthHead", models.DO_NOTHING)
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     last_name = models.CharField(
         max_length=50, db_collation="latin1_swedish_ci", db_comment="Last Name"
     )
@@ -1012,7 +1044,9 @@ class ThirteenThMonthData(models.Model):
 
 class EmployeeLeave(models.Model):
     pk = models.CompositePrimaryKey("emp_id", "leave_id")
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id', db_comment="Employee ID")
+    emp_id = models.ForeignKey(
+        "Employee", models.DO_NOTHING, db_column="emp_id", db_comment="Employee ID"
+    )
     leave = models.ForeignKey("LeaveType", models.DO_NOTHING, db_comment="Leave ID")
     year = models.CharField(max_length=4)
     assigned_hrs = models.FloatField(
@@ -1060,15 +1094,15 @@ class LeaveRequest(models.Model):
     emp_id = models.CharField(max_length=11)
     leave_id = models.CharField(max_length=10)
     sched_date = models.DateField()
-    is_half_day = models.CharField(max_length=1, default='N')
+    is_half_day = models.CharField(max_length=1, default="N")
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
     approved_hrs = models.FloatField(null=True, blank=True)
-    with_pay = models.CharField(max_length=1, default='Y')
+    with_pay = models.CharField(max_length=1, default="Y")
     status = models.CharField(
         max_length=2,
-        default='FA',
-        db_comment="FA = FOR APPROVAL, AP = APPROVED, DA = DISAPPROVED, CN = CANCELLED, OK = DONE/OK/APPLIED, XP = EXPIRED"
+        default="FA",
+        db_comment="FA = FOR APPROVAL, AP = APPROVED, DA = DISAPPROVED, CN = CANCELLED, OK = DONE/OK/APPLIED, XP = EXPIRED",
     )
     remarks = models.CharField(max_length=255, blank=True, null=True)
     payroll_id = models.CharField(max_length=15, blank=True, null=True)
@@ -1106,14 +1140,14 @@ class OtRequest(models.Model):
     sched_date = models.DateField()
     time_in = models.TimeField()
     time_out = models.DateTimeField()
-    next_day_out = models.CharField(max_length=1, default='N')
+    next_day_out = models.CharField(max_length=1, default="N")
     hrs_req = models.FloatField()
     apprv_hrs = models.FloatField(null=True, blank=True)
     applied_hrs = models.FloatField(null=True, blank=True)
     status = models.CharField(
-        max_length=2, 
-        default='FA',
-        db_comment="FA = FOR APPROVAL, AP = APPROVED, DA = DISAPPROVED, CN = CANCELLED, OK = DONE/OK/APPLIED, XP = EXPIRED"
+        max_length=2,
+        default="FA",
+        db_comment="FA = FOR APPROVAL, AP = APPROVED, DA = DISAPPROVED, CN = CANCELLED, OK = DONE/OK/APPLIED, XP = EXPIRED",
     )
     remarks = models.CharField(max_length=255, blank=True, null=True)
     payroll_id = models.CharField(max_length=15, blank=True, null=True)
@@ -1133,16 +1167,16 @@ class OtRequest(models.Model):
 
 class OBRequest(models.Model):
     id = models.CharField(primary_key=True, max_length=50)
-    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column='emp_id')
+    emp_id = models.ForeignKey("Employee", models.DO_NOTHING, db_column="emp_id")
     sched_date = models.DateField()
     time_in = models.TimeField()
     time_out = models.DateTimeField()
-    next_day_out = models.CharField(max_length=1, default='N')
+    next_day_out = models.CharField(max_length=1, default="N")
     remarks = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(
-        max_length=2, 
-        default='FA',
-        db_comment="FA = FOR APPROVAL, AP = APPROVED, DA = DISAPPROVED, CN = CANCELLED, OK = DONE/OK/APPLIED, XP = EXPIRED"
+        max_length=2,
+        default="FA",
+        db_comment="FA = FOR APPROVAL, AP = APPROVED, DA = DISAPPROVED, CN = CANCELLED, OK = DONE/OK/APPLIED, XP = EXPIRED",
     )
     payroll_id = models.CharField(max_length=15, blank=True, null=True)
     approver_id = models.CharField(max_length=15, blank=True, null=True)

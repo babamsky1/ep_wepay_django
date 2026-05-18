@@ -48,7 +48,7 @@ def generate__last_pay(request):
             # Magsimula sa araw pagkatapos ng huling araw ng payroll period
             period_start = last_payroll_data.payroll.period_end_date + timedelta(days=1)
         else:
-            # Fallback: gamitin ang pinaka-unang timesheet date
+            # pag wala pang payroll, gamitin ang pinaka-unang timesheet date
             ts_first = TimeSheet.objects.filter(emp_id=emp_id).aggregate(ts_start=Min("tran_date"))
             period_start = ts_first["ts_start"]
 
@@ -106,9 +106,6 @@ def generate__last_pay(request):
                 filter(None, [employee.first_name, employee.last_name, employee.middle_name])
             )
 
-            # Fixed constants — 8 hrs/day, 480 mins/day
-            avg_hours_per_day = Decimal("8.0")
-            avg_work_mins_per_day = Decimal("480")
 
             # Kunin ang pre-computed timesheet totals mula sa lp_timesheet
             # Fully dependent on basic_hours computed by timesheet_upload_views.py
@@ -133,16 +130,16 @@ def generate__last_pay(request):
 
             # Rates
             daily_rate    = Decimal(str(employee_record.daily_rate))
-            avg_hour_rate = daily_rate / avg_hours_per_day  # Para sa overtime computation
+            avg_hour_rate = daily_rate / Decimal("8.0")  # Para sa overtime computation
 
             # Days worked — derived from basic_hours
             # basic_hours already accounts for schedule, holidays, late, UT, etc. from timesheet_upload_views.py
-            basic_days  = total_basic_hours / avg_work_mins_per_day
+            basic_days  = total_basic_hours / Decimal("480")
             days_worked = max(basic_days, Decimal("0.00"))
 
             # 13th month — add back late/UT deductions (not included in 13th month computation)
-            late_days_13th = total_late_mins / avg_work_mins_per_day
-            ut_days_13th   = total_ut_mins   / avg_work_mins_per_day
+            late_days_13th = total_late_mins / Decimal("480")
+            ut_days_13th   = total_ut_mins   / Decimal("480")
             days_for_13th  = max(days_worked + late_days_13th + ut_days_13th, Decimal("0.00"))
 
             # Basic pay
@@ -178,7 +175,7 @@ def generate__last_pay(request):
                 total_used_hrs += Decimal(str(m["total_used_hrs"] or 0))
 
             remaining_hrs  = max(total_leave_hrs - total_used_hrs, Decimal("0"))
-            remaining_days = remaining_hrs / avg_hours_per_day
+            remaining_days = remaining_hrs / Decimal("8.0")
             leave_credit_amt = daily_rate * remaining_days
 
             # Schedule filter para sa allowances at loans
@@ -370,9 +367,9 @@ def generate__last_pay(request):
                 daily_rate=employee_record.daily_rate,
                 total_days_worked=days_worked,
                 basic_pay=basic_pay,
-                lp_total_absents=Decimal("0.00"),   # Basic_hours na ang nag-account ng absents
-                lp_total_late_amt=Decimal("0.00"),   # Basic_hours na ang nag-account ng late
-                lp_total_ut_amt=Decimal("0.00"),      # Basic_hours na ang nag-account ng UT
+                lp_total_absents=Decimal("0.00"),
+                lp_total_late_amt=Decimal("0.00"),
+                lp_total_ut_amt=Decimal("0.00"),
                 employee_start_date=employee_record.date_hired,
                 employee_end_date=last_day,
                 cut_off_start_date=cut_off_start_dt,
@@ -438,7 +435,7 @@ def generate__last_pay(request):
                 ).save()
 
             # I-save ang 13th month details
-            # Una: historical payroll months, para maiwasan ang duplication
+            # Una: past payroll_headers, para maiwasan ang duplication
             for res in results_thirteenth:
                 Month13SalaryDetail(
                     tm_id=str(uuid.uuid4()).replace("-", "").upper(),
@@ -471,11 +468,11 @@ def generate__last_pay(request):
                     month    = month_data["sched_date__month"]
                     year     = month_data["sched_date__year"]
                     used_hrs = Decimal(str(month_data["total_used_hrs"] or 0))
-                    used_days_detail = used_hrs / avg_hours_per_day
+                    used_days_detail = used_hrs / Decimal("8.0")
 
                     cumulative_used_hrs    += used_hrs
                     running_remaining_hrs   = max(total_leave_hrs - cumulative_used_hrs, Decimal("0"))
-                    running_remaining_days  = (running_remaining_hrs / avg_hours_per_day).quantize(Decimal("0.01"))
+                    running_remaining_days  = (running_remaining_hrs / Decimal("8.0")).quantize(Decimal("0.01"))
 
                     LeaveMonthlyDetail(
                         leave_id=str(uuid.uuid4()).replace("-", "").upper(),
@@ -491,7 +488,7 @@ def generate__last_pay(request):
                     leave_id=str(uuid.uuid4()).replace("-", "").upper(),
                     last_pay_record_id=new_record,
                     days_used=Decimal("0.00"),
-                    remaining=(total_leave_hrs / avg_hours_per_day).quantize(Decimal("0.01")),
+                    remaining=(total_leave_hrs / Decimal("8.0")).quantize(Decimal("0.01")),
                     coverage_month=last_day.month,
                     year=last_day.year,
                 ).save()

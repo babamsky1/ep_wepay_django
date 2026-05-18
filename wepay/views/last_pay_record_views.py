@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction, connection, DatabaseError, IntegrityError
 from ..models import LastPayRecord, GeneralLog
-from ..serializers import LastPayRecordSerializer, LastPayRecordListSerializer
+from ..serializers import LastPayRecordSerializer
 from ..services import persist_totals
 from ..utils import get_record_by_identifier
 import logging

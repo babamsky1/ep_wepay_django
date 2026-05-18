@@ -91,15 +91,15 @@ def login_view(request):
                     status=403
                 )
 
-            # Convert role_id to readable role name
-            role_map = {
-                1: 'superadmin',
-                2: 'finance',
-                3: 'hr',
-                4: 'manager'
-            }
+            # # Convert role_id to readable role name
+            # role_map = {
+            #     1: 'superadmin',
+            #     2: 'finance',
+            #     3: 'hr',
+            #     4: 'manager'
+            # }
 
-            user_role = role_map.get(role_id)
+            # user_role = role_map.get(role_id)
 
             # Success login response
             return JsonResponse(

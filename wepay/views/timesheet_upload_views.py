@@ -99,7 +99,7 @@ def get_holidays_for_period(start_date, end_date):
     with connection.cursor() as cursor:
         cursor.execute(
             """
-            SELECT month_no, day_no, year_no
+            SELECT month_no, day_no, year_no, hol_type
             FROM holiday_calendar
             WHERE active = 'Y'
             AND (year_no = 0 OR year_no = %s)
@@ -108,8 +108,8 @@ def get_holidays_for_period(start_date, end_date):
         )
         holiday_rows = cursor.fetchall()
 
-    holiday_dates = set()
-    for month, day, year in holiday_rows:
+    holiday_dates = {}
+    for month, day, year, hol_type in holiday_rows:
         try:
             # year_no = 0 means recurring every year
             h_date = (
@@ -118,7 +118,7 @@ def get_holidays_for_period(start_date, end_date):
             )
             # Isama lang ang holidays na nasa loob ng date range
             if start_date <= h_date <= end_date:
-                holiday_dates.add(h_date)
+                holiday_dates[h_date] = hol_type
         except ValueError:
             pass
 
@@ -126,13 +126,6 @@ def get_holidays_for_period(start_date, end_date):
 
 
 def get_merged_attendance(emp_id, biometric_id, dates):
-    """
-    I-merge ang biometric data at approved OB requests para sa complete attendance.
-    Priority rules:
-    - May bio time_in at time_out + OB: sundin ang bio, i-note lang ang OB
-    - May bio time_in lang + OB time_in na mas maaga: gamitin OB time_in
-    - Walang bio data: gamitin lahat ng OB data
-    """
     # merge attendance, always check OB reqeust to fill gaps from attendance
     merged_attendance = {}
 
@@ -423,7 +416,7 @@ def upload_timesheet(request):
                 max_date = max(all_dates) + timedelta(days=6)
                 holiday_dates = get_holidays_for_period(min_date, max_date)
             else:
-                holiday_dates = set()
+                holiday_dates = {}
 
             # I-merge ang biometric at OB attendance data
             merged_attendance = get_merged_attendance(emp_id, biometric_id, sorted(all_dates))
@@ -549,7 +542,9 @@ def upload_timesheet(request):
                     # COMPUTE BASIC HOURS
                     # Base = maximum hours para sa araw na iyon
                     # Ibabawas ang late at undertime
-                    is_holiday = parsed_date in holiday_dates
+                    # is_holiday = parsed_date in holiday_dates
+                    hol_type = holiday_dates.get(parsed_date)
+                    is_holiday = hol_type is not None
 
                     if is_holiday:
                         # Holiday — regular hours, based on employee type
@@ -581,6 +576,15 @@ def upload_timesheet(request):
 
                     # I-deduct ang late at undertime sa maximum hours
                     basic_hours = float(max(0, day_max - late_mins - ut_mins))
+                    
+                    if is_holiday:
+                        if sched_time_in and sched_time_out:
+                            
+                            if hol_type == "S":
+                                basic_hours *= 1.3
+                                
+                            elif hol_type == "R":
+                                basic_hours *= 2
 
                     # I-save ang computed timesheet record
                     with connection.cursor() as cursor:

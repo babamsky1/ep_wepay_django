@@ -13,12 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 # Mapping ng role name papuntang role_id sa database
-ROLE_MAP = {
-    "superadmin": 1,
-    "finance": 2,
-    "hr": 3,
-    "manager": 4
-}
+# ROLE_MAP = {"superadmin": 1, "finance": 2, "hr": 3, "manager": 4}
 
 
 def handle_database_error(operation_name):
@@ -34,7 +29,7 @@ def handle_database_error(operation_name):
                 return Response(
                     {
                         "result": "error",
-                        "message": f"Database error during {operation_name}. Please try again later."
+                        "message": f"Database error during {operation_name}. Please try again later.",
                     },
                     status=status.HTTP_503_SERVICE_UNAVAILABLE,
                 )
@@ -46,12 +41,13 @@ def handle_database_error(operation_name):
                 return Response(
                     {
                         "result": "error",
-                        "message": f"{operation_name} failed. Please contact support."
+                        "message": f"{operation_name} failed. Please contact support.",
                     },
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         return wrapper
+
     return decorator
 
 
@@ -74,7 +70,6 @@ def employees_list(request):
 
     offset = (page - 1) * page_size
 
-    # Active users lang may system access = Y
     employees = Employee.objects.filter()
 
     # Search by employee id
@@ -84,14 +79,17 @@ def employees_list(request):
     # Search by first name or last name - use Q objects for better performance
     if employee_name:
         employees = employees.filter(
-            Q(first_name__icontains=employee_name) | Q(last_name__icontains=employee_name)
+            Q(first_name__icontains=employee_name)
+            | Q(last_name__icontains=employee_name)
         )
 
     # Count total records after filters are applied
     total_count = employees.count()
 
     # Use select_related to optimize foreign key queries and sort with pagination
-    employees = employees.select_related().order_by('last_name', 'first_name')[offset:offset + page_size]
+    employees = employees.select_related().order_by("last_name", "first_name")[
+        offset : offset + page_size
+    ]
 
     serializer = EmployeeListSerializer(employees, many=True)
 
@@ -102,7 +100,7 @@ def employees_list(request):
             "total": total_count,
             "page": page,
             "page_size": page_size,
-            "message": "OK"
+            "message": "OK",
         },
         status=status.HTTP_200_OK,
     )
@@ -117,7 +115,7 @@ def employee_create(request):
 
     # Default role = hr
     role_str = data.get("role", "hr")
-    role_id = ROLE_MAP.get(role_str, 3)
+    # role_id = ROLE_MAP.get(role_str, 3)
 
     # Inputs from frontend
     first_name = data.get("firstName")
@@ -133,7 +131,7 @@ def employee_create(request):
         return Response(
             {
                 "result": "error",
-                "message": "Email, password, first name, and last name are required"
+                "message": "Email, password, first name, and last name are required",
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -141,19 +139,21 @@ def employee_create(request):
     with connection.cursor() as cursor:
 
         # Kunin latest employee number
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT emp_id
             FROM employee
             WHERE emp_id LIKE 'EMP-%'
             ORDER BY emp_id DESC
             LIMIT 1
-        """)
+        """
+        )
 
         last_employee = cursor.fetchone()
 
         # Generate next employee number
         if last_employee:
-            last_num = int(last_employee[0].split('-')[1])
+            last_num = int(last_employee[0].split("-")[1])
             next_num = last_num + 1
         else:
             next_num = 1
@@ -188,31 +188,31 @@ def employee_create(request):
                 "Y",
                 birth_date or None,
                 sex or None,
-                marital_stat or None
-            ]
+                marital_stat or None,
+            ],
         )
 
     # Save audit log
-    performed_by = data.get('performed_by', 'system')
+    performed_by = data.get("performed_by", "system")
 
     GeneralLog.objects.create(
         table_id=emp_id,
-        table_name='Employee',
-        action='CREATE',
+        table_name="Employee",
+        action="CREATE",
         details={
-            'first_name': first_name,
-            'last_name': last_name,
-            'email': email_address,
-            'role': role_str,
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email_address,
+            "role": role_str,
         },
-        performed_by=performed_by
+        performed_by=performed_by,
     )
 
     return Response(
         {
             "result": "success",
             "message": "Employee created successfully",
-            "emp_id": emp_id
+            "emp_id": emp_id,
         },
         status=status.HTTP_201_CREATED,
     )
@@ -234,7 +234,7 @@ def employee_update(request):
         )
 
     role_str = data.get("role")
-    role_id = ROLE_MAP.get(role_str) if role_str else None
+    # role_id = ROLE_MAP.get(role_str) if role_str else None
 
     # New values from frontend
     first_name = data.get("firstName")
@@ -248,12 +248,15 @@ def employee_update(request):
     with connection.cursor() as cursor:
 
         # Kunin old values muna
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT first_name, last_name, email_address,
                    role_id, birth_date, sex, marital_stat
             FROM employee
             WHERE emp_id = %s
-        """, [emp_id])
+        """,
+            [emp_id],
+        )
 
         employee_data = cursor.fetchone()
 
@@ -270,17 +273,17 @@ def employee_update(request):
             old_role_id,
             old_birth_date,
             old_sex,
-            old_marital_stat
+            old_marital_stat,
         ) = employee_data
 
         # Compare old vs new values
         field_mappings = [
-            ('first_name', first_name, old_first_name),
-            ('last_name', last_name, old_last_name),
-            ('email_address', email_address, old_email),
-            ('birth_date', birth_date, old_birth_date),
-            ('sex', sex, old_sex),
-            ('marital_stat', marital_stat, old_marital_stat),
+            ("first_name", first_name, old_first_name),
+            ("last_name", last_name, old_last_name),
+            ("email_address", email_address, old_email),
+            ("birth_date", birth_date, old_birth_date),
+            ("sex", sex, old_sex),
+            ("marital_stat", marital_stat, old_marital_stat),
         ]
 
         update_fields = []
@@ -303,7 +306,7 @@ def employee_update(request):
         if role_id is not None and role_id != old_role_id:
             update_fields.append("role_id = %s")
             params.append(role_id)
-            old_values['role'] = old_role_id
+            old_values["role"] = old_role_id
 
         # Execute update only if may changes
         if update_fields:
@@ -319,25 +322,25 @@ def employee_update(request):
 
     # Save logs
     log_details = {
-        'first_name': first_name,
-        'last_name': last_name,
-        'email': email_address,
-        'role': role_str,
-        'old_values': old_values,
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": email_address,
+        "role": role_str,
+        "old_values": old_values,
     }
 
     # Mark if password changed (only if actually updated)
     if "system_password" in update_fields:
-        log_details['password_changed'] = True
+        log_details["password_changed"] = True
 
-    performed_by = data.get('performed_by', 'system')
+    performed_by = data.get("performed_by", "system")
 
     GeneralLog.objects.create(
         table_id=emp_id,
-        table_name='Employee',
-        action='UPDATE',
+        table_name="Employee",
+        action="UPDATE",
         details=log_details,
-        performed_by=performed_by
+        performed_by=performed_by,
     )
 
     return Response(
@@ -362,12 +365,15 @@ def employee_delete(request):
     with connection.cursor() as cursor:
 
         # Get employee data for logging before deletion
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT first_name, last_name, email_address,
                    role_id, system_access
             FROM employee
             WHERE emp_id = %s
-        """, [emp_id])
+        """,
+            [emp_id],
+        )
 
         employee_data = cursor.fetchone()
 
@@ -383,33 +389,28 @@ def employee_delete(request):
         cursor.execute("DELETE FROM employee_record WHERE emp_id = %s", [emp_id])
         cursor.execute("DELETE FROM lp_timesheet WHERE emp_id = %s", [emp_id])
         cursor.execute("DELETE FROM payroll_data WHERE emp_id = %s", [emp_id])
-        
+
         # Hard delete the employee
-        cursor.execute(
-            "DELETE FROM employee WHERE emp_id = %s",
-            [emp_id]
-        )
+        cursor.execute("DELETE FROM employee WHERE emp_id = %s", [emp_id])
 
     # Save logs
-    performed_by = request.data.get('performed_by', 'system')
+    performed_by = request.data.get("performed_by", "system")
 
     GeneralLog.objects.create(
         table_id=emp_id,
-        table_name='Employee',
-        action='DELETE',
+        table_name="Employee",
+        action="DELETE",
         details={
-            'message': f"Deleted employee: {first_name} {last_name} ({email_address})",
-            'first_name': first_name,
-            'last_name': last_name,
-            'email': email_address,
-            'role': role_id,
+            "message": f"Deleted employee: {first_name} {last_name} ({email_address})",
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email_address,
+            "role": role_id,
         },
-        performed_by=performed_by
+        performed_by=performed_by,
     )
 
     return Response(
         {"result": "success", "message": "Employee deleted successfully"},
         status=status.HTTP_200_OK,
     )
-
-
